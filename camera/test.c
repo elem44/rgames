@@ -13,7 +13,6 @@ typedef struct EnvRectangle {
 } EnvRectangle;
 
 
-float rec_top(Rectangle rect);
 
 
 int main(void) {
@@ -89,7 +88,3 @@ int main(void) {
     CloseWindow();
 }
 
-float rec_top(Rectangle rect)
-{
-    return (float) rect.y - rect.height;
-}

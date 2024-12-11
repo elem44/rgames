@@ -11,16 +11,23 @@ typedef struct Player {
     float height;
 } Player;
 
-typedef struct Level {
-    Rectangle rect;
-    Rectangle rect2;
-} Level;
+typedef struct EnvRect {
+    Rectangle rec;
+    Color color;
+} EnvRect;
 
 typedef struct Coin {
     Vector2 position;
     bool is_collected;
 } Coin;
-const int LEVEL_BOX_COUNT = 2;
+
+const int SCREEN_WIDTH = 800;
+const int SCREEN_HEIGHT = 600;
+const int FPS = 60;
+
+
+const int BOX_COUNT = 4;
+const int COIN_COUNT = 3;
 
 
 
@@ -29,16 +36,16 @@ const int G = 10;
 const float COIN_SIZE = 10;
 
 
+void start_program(void);
 void update_player(Player *player);
+void player_rectangle_collision(Player *player, Rectangle rec);
 
 int main(void) {
-    int screen_width = 800;
-    int screen_height = 600;
 
     int score = 0;
 
     Player player = {
-        (Vector2){(float)screen_width / 2, (float)screen_height / 2},
+        (Vector2){(float)SCREEN_WIDTH / 2, (float)SCREEN_HEIGHT / 2},
         {0, 0},
         false,
         15,
@@ -46,46 +53,47 @@ int main(void) {
     };
     Camera2D camera = { 0 };
     camera.target = player.position;
-    camera.offset = (Vector2){ screen_width/2.0f, screen_height/2.0f };
+    camera.offset = (Vector2){ SCREEN_WIDTH/2.0f, SCREEN_HEIGHT/2.0f };
     camera.rotation = 0.0f;
     camera.zoom = 1.0f;
 
-    Rectangle platforms[LEVEL_BOX_COUNT];
-    platforms[0] = (Rectangle) { 50, 500, 700, 80 };
-    platforms[1] = (Rectangle) { 800, 500, 700, 80 };
+    EnvRect platforms[BOX_COUNT];
+    platforms[0] = (EnvRect){ (Rectangle) { 50, 500, 700, 80 }, GRAY };
+    platforms[1] = (EnvRect){ (Rectangle) { 800, 500, 700, 80 }, BLACK};
+    platforms[2] = (EnvRect){ (Rectangle) { 325, 420, 600, 60 }, GREEN};
+    platforms[3] = (EnvRect){ (Rectangle) { 200, 350, 400, 50 }, GRAY};
 
-    Level level = {
-        platforms[0],
-        platforms[1],
-    };
 
-    Coin coin = {
+    Coin coins[COIN_COUNT];
+    coins[0] = (Coin){
         (Vector2) { 850, 300 },
         false,
     };
+    coins[1] = (Coin){ (Vector2) {1000, 400}, false };
+    coins[2] = (Coin){ (Vector2) {200, 0}, false};
 
-    SetTargetFPS(60);
-    InitWindow(screen_width, screen_height, "level");
 
+    start_program();
 
     while (!WindowShouldClose()) {
         
         update_player(&player);
 
-        for (int i = 0; i < LEVEL_BOX_COUNT; i++)
+        for (int i = 0; i < BOX_COUNT; i++)
         {
-            if (CheckCollisionRecs((Rectangle) {player.position.x, player.position.y, player.width, player.height}, platforms[i]) && player.position.y < platforms[i].y)
+            if (CheckCollisionRecs((Rectangle) {player.position.x, player.position.y, player.width, player.height}, platforms[i].rec))
             {
-                player.can_jump = true;
-                player.position.y = platforms[i].y - player.height;
-                player.velocity.y = 0;
+                player_rectangle_collision(&player, platforms[i].rec);
             }
         }
 
-        if (CheckCollisionCircleRec(coin.position, COIN_SIZE, (Rectangle) {player.position.x, player.position.y, player.width, player.height}) && !coin.is_collected)
+        for (int i = 0; i < COIN_COUNT; i++)
         {
-            coin.is_collected = true;
-            score++;
+            if (CheckCollisionCircleRec(coins[i].position, COIN_SIZE, (Rectangle) {player.position.x, player.position.y, player.width, player.height}) && !coins[i].is_collected)
+            {
+                coins[i].is_collected = true;
+                score++;
+            }
         }
 
         camera.target = player.position;
@@ -99,13 +107,20 @@ int main(void) {
             DrawText(str, 600, 100, 90, BLACK);
             
             BeginMode2D(camera);
-            if (!coin.is_collected)
-            {
-                DrawCircleV(coin.position, COIN_SIZE, YELLOW);
-            }
             DrawRectangle(player.position.x, player.position.y, player.width, player.height, BLUE);
-            DrawRectangleRec(platforms[0], GRAY);
-            DrawRectangleRec(platforms[1], BLACK);
+
+            for (int i = 0; i < BOX_COUNT; i++)
+            {
+            DrawRectangleRec(platforms[i].rec, platforms[i].color);
+            }
+
+            for (int i = 0; i < COIN_COUNT; i++)
+            {
+                if (!coins[i].is_collected)
+                {
+                    DrawCircleV(coins[i].position, COIN_SIZE, YELLOW);
+                }
+            }
             EndMode2D();
         EndDrawing();
     }
@@ -113,8 +128,41 @@ int main(void) {
     CloseWindow();
 }
 
+void player_rectangle_collision(Player *player, Rectangle rec)
+{
+    if (player->position.y < rec.y)
+    {
+        player->can_jump = true;
+        player->position.y = rec.y - player->height;
+        player->velocity.y = 0;
+        return;
+    }
+
+    if (player->position.y > rec.y)
+    {
+        player->position.y = rec.y + rec.height;
+        player->velocity.y = 0;
+        return;
+    }
+
+    if (player->position.x < rec.x)
+    {
+        player->position.x = rec.x + player->width;
+        player->velocity.x = -1;
+        return;
+    }
+
+    if (player->position.x > rec.x)
+    {
+        player->position.x = rec.x - player->width;
+        player->velocity.x = 1;
+        return;
+    }
+}
+
 void update_player(Player *player)
 {
+    // Calculate player inputs
     if (IsKeyDown(KEY_LEFT)) 
     {
         player->velocity.x = -8;
@@ -128,6 +176,7 @@ void update_player(Player *player)
         player->velocity.x = 0;
     }
 
+    // Check if player can/should jump
     if (player->can_jump)
     {
         if (IsKeyPressed(KEY_SPACE))
@@ -136,39 +185,16 @@ void update_player(Player *player)
             player->can_jump = false;
         }
     }
+    
+    // Apply Gravity
     player->velocity.y += (float)(G * 0.1);
 
+    // Update Position
     player->position = Vector2Add(player->position, player->velocity);
 }
 
-
-
-/*
- 
-        if (IsKeyDown(KEY_LEFT)) 
-        {
-            player.velocity.x = -8;
-        } 
-        else if (IsKeyDown(KEY_RIGHT)) 
-        {
-            player.velocity.x = 8;
-        } 
-        else
-        {
-            player.velocity.x = 0;
-        }
-
-        if (player.can_jump)
-        {
-            if (IsKeyPressed(KEY_SPACE))
-            {
-                player.velocity.y -= 20;
-                player.can_jump = false;
-            }
-        }
-
-        player.velocity.y += (float)(G * 0.1);
-
-        player.position = Vector2Add(player.position, player.velocity);
-
-*/
+void start_program(void)
+{
+    SetTargetFPS(60);
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Level");
+}

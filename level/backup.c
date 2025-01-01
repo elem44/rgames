@@ -162,34 +162,42 @@ int main(void) {
 
 void player_rectangle_collision(Player *player, Rectangle rec)
 {
-    if (player->center.y < rec.y)
-    {
-        player->can_jump = true;
-        player->position.y = rec.y - player->height;
-        player->velocity.y = 0;
-        return;
-    }
 
-    if (player->center.y > rec.y)
-    {
-        player->position.y = rec.y + player->height * 2;
-        player->velocity.y = 0;
-        return;
-    }
+    Vector2 midpoint = midpoint_rec(rec);
+    Vector2 offset = { player->center.x - midpoint.x, player->center.y - midpoint.y };
 
-    if (player->center.x < rec.x)
-    {
-        player->position.x = rec.x + player->width;
-        player->velocity.x = -1;
-        return;
-    }
+    BeginDrawing();
+        DrawCircleV(offset, 5, GREEN);
+    EndDrawing();
 
-    if (player->center.x > rec.x)
+    if (fabs(offset.x) > fabs(offset.y))
     {
-        player->position.x = rec.x - player->width;
-        player->velocity.x = 1;
-        return;
+        if (offset.x > 0)
+        {
+            player->position.x -= offset.x - player->width;
+        }
+        else if (offset.x < 0)
+        {
+            player->position.x += offset.x - player->width;
+        }
     }
+    else if (fabs(offset.y) > fabs(offset.x))
+    {
+        if (offset.y > 0)
+        {
+            player->position.y -= offset.y;
+        }
+        else if (offset.y < 0)
+        {
+            player->position.y += offset.y;
+        }
+    }
+    else
+    {
+        player->position.x += offset.x;
+        player->position.y += offset.y;
+    }
+    
     update_player(player);
 }
 
